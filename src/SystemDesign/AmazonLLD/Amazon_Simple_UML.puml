@@ -1,0 +1,159 @@
+@startuml Amazon_Simple
+
+class Order {
+- orderId : String
+- user : User*
+- orderItems : List<OrderItem*>
+- totalAmount : double
+- status : OrderStatus
+--
++ addOrderItem(OrderItem item) : void
++ setStatus(OrderStatus status) : void
++ calculateTotalAmount() : void
+}
+
+class OrderMetaData {
+- userRating : double
+- productRating : double
+- totalAmount : double
+- discountAmount : double
+--
++ calculateDiscount() : double
++ validateOrder() : boolean
++ getOrderSummary() : String
+}
+
+class OnlineShoppingService {
+- instance : OnlineShoppingService*
+- users : Map<String, User*>
+- products : Map<String, Product*>
+- userCarts : Map<String, ShoppingCart*>
+- userOrders : Map<String, List<Order*>>
+- activeSales : Map<String, Sale*>
+- lock : ReentrantReadWriteLock
+--
++ getInstance() : OnlineShoppingService*
++ registerUser(User user) : void
++ addProduct(Product product) : void
++ placeOrder(String userId, Payment payment) : Order*
++ searchProducts(String keyword) : List<Product*>
+}
+
+class StrategyManager {
+- strategyMgrInstance : StrategyManager*
+--
++ getStrategyMgr() : StrategyManager*
++ determineDiscountStrategy(OrderMetaData metaData) : DiscountStrategy*
++ determinePaymentStrategy(OrderMetaData metaData) : Payment*
+}
+
+class UserManager {
+- userMgrInstance : UserManager*
+- usersMap : Map<String, User*>
+--
++ getUserMgr() : UserManager*
++ addUser(String userId, User user) : void
++ getUser(String userId) : User*
++ validateUser(String userId) : boolean
+}
+
+class ProductManager {
+- productMgrInstance : ProductManager*
+- productsMap : Map<String, Product*>
+--
++ getProductMgr() : ProductManager*
++ addProduct(String productId, Product product) : void
++ getProduct(String productId) : Product*
++ updateInventory(String productId, int quantity) : boolean
+}
+
+class InventoryManager {
+- inventoryMgrInstance : InventoryManager*
+- inventoryMap : Map<String, Integer>
+--
++ getInventoryMgr() : InventoryManager*
++ reserveItems(String productId, int quantity) : boolean
++ releaseItems(String productId, int quantity) : void
++ checkAvailability(String productId) : int
+}
+
+class User {
+- userId : String
+- name : String
+- email : String
+- password : String
+--
++ User(String userId, String name, String email, String password) : void
++ getUserId() : String
++ addOrder(Order order) : void
+}
+
+class Product {
+- productId : String
+- name : String
+- description : String
+- price : double
+- quantity : AtomicInteger
+--
++ Product(String productId, String name, String description, double price, int quantity) : void
++ reserveItems(int count) : boolean
++ releaseItems(int count) : void
++ isAvailable() : boolean
+}
+
+class ShoppingCart {
+- userId : String
+- items : Map<String, OrderItem*>
+--
++ addItem(Product product, int quantity) : void
++ removeItem(String productId) : void
++ updateQuantity(String productId, int quantity) : void
++ getTotalAmount() : double
+}
+
+interface DiscountStrategy <<Strategy>> {
++ applyDiscount(double originalPrice, int quantity) : double
+}
+
+interface Payment <<Strategy>> {
++ processPayment(double amount) : boolean
+}
+
+class PercentageDiscount implements DiscountStrategy {
++ applyDiscount(double originalPrice, int quantity) : double
+}
+
+class FixedAmountDiscount implements DiscountStrategy {
++ applyDiscount(double originalPrice, int quantity) : double
+}
+
+class CreditCardPayment implements Payment {
++ processPayment(double amount) : boolean
+}
+
+class PayPalPayment implements Payment {
++ processPayment(double amount) : boolean
+}
+
+' Relationships
+Order --> OrderMetaData
+OnlineShoppingService --> Order
+OnlineShoppingService --> UserManager
+OnlineShoppingService --> ProductManager
+OnlineShoppingService --> InventoryManager
+OnlineShoppingService --> StrategyManager
+
+StrategyManager --> DiscountStrategy
+StrategyManager --> Payment
+
+UserManager --> User
+ProductManager --> Product
+InventoryManager --> Product
+OnlineShoppingService --> ShoppingCart
+
+DiscountStrategy <|.. PercentageDiscount
+DiscountStrategy <|.. FixedAmountDiscount
+Payment <|.. CreditCardPayment
+Payment <|.. PayPalPayment
+
+@enduml

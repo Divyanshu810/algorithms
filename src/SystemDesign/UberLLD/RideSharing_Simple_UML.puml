@@ -1,0 +1,131 @@
+@startuml RideSharing_Simple
+
+class Ride {
+- rideId : String
+- rider : Rider*
+- driver : Driver*
+- srcLoc : Location*
+- dstLoc : Location*
+- status : RideStatus
+- type : RideType
+- fare : double
+- createdAt : LocalDateTime
+--
++ getRideId() : String
++ displayRideDetails() : void
++ updateStatus(RideStatus status) : void
+}
+
+class RideMetaData {
+- riderRating : double
+- driverRating : double
+- srcLoc : Location*
+- dstLoc : Location*
+--
++ getRiderRating() : double
++ getDriverRating() : double
++ calculateDistance() : double
+}
+
+class RideManager {
+- instance : RideManager*
+- activeRides : Map<String, Ride*>
+- riderMgr : RiderManager*
+- driverMgr : DriverManager*
+- ridesMetaDataInfo : Map<String, RideMetaData*>
+- rideInfo : Map<String, Ride*>
+--
++ getInstance() : RideManager*
++ addRide(Rider rider, Location srcLoc, Location dstLoc) : Ride*
++ getRidesMap() : Map<String, Ride*>
+}
+
+class StrategyManager {
+- strategyMgrInstance : StrategyManager*
+--
++ getStrategyMgr() : StrategyManager*
++ determinePricingStrategy(RideMetaData metaData) : PricingStrategy*
++ determineMatchingStrategy(RideMetaData metaData) : DriverMatchingStrategy*
+}
+
+class RiderManager {
+- riderMgrInstance : RiderManager*
+- ridersMap : Map<String, Rider*>
+--
++ getRiderMgr() : RiderManager*
++ addRider(String riderName, Rider rider) : void
++ getRider(String riderName) : Rider*
+}
+
+class DriverManager {
+- driverMgrInstance : DriverManager*
+- driversMap : Map<String, Driver*>
+--
++ getDriverMgr() : DriverManager*
++ addDriver(String driverName, Driver driver) : void
++ getDriver(String driverName) : Driver*
+}
+
+class Rider {
+- name : String
+- rating : double
+--
++ Rider(String name, double rating) : void
++ getRiderName() : String
++ getRating() : double
+}
+
+class Driver {
+- name : String
+- available : boolean
+- rating : double
+--
++ Driver(String name, double rating) : void
++ updateAvailability(boolean available) : void
++ getDriverName() : String
++ getRating() : double
+}
+
+interface PricingStrategy <<Strategy>> {
++ calculatePrice(RideMetaData metaData) : double
+}
+
+interface DriverMatchingStrategy <<Strategy>> {
++ matchDriver(RideMetaData metaData) : Driver*
+}
+
+class DefaultPricingStrategy implements PricingStrategy {
++ calculatePrice(RideMetaData metaData) : double
+}
+
+class SurgePricingStrategy implements PricingStrategy {
++ calculatePrice(RideMetaData metaData) : double
+}
+
+class NearestDriverMatchingStrategy implements DriverMatchingStrategy {
++ matchDriver(RideMetaData metaData) : Driver*
+}
+
+class RatingBasedMatchingStrategy implements DriverMatchingStrategy {
++ matchDriver(RideMetaData metaData) : Driver*
+}
+
+' Relationships
+Ride --> RideMetaData
+RideManager --> Ride
+RideManager --> RiderManager
+RideManager --> DriverManager
+RideManager --> StrategyManager
+
+StrategyManager --> PricingStrategy
+StrategyManager --> DriverMatchingStrategy
+
+RiderManager --> Rider
+DriverManager --> Driver
+
+PricingStrategy <|.. DefaultPricingStrategy
+PricingStrategy <|.. SurgePricingStrategy
+DriverMatchingStrategy <|.. NearestDriverMatchingStrategy
+DriverMatchingStrategy <|.. RatingBasedMatchingStrategy
+
+@enduml

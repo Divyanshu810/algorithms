@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <modelVersion>4.0.0</modelVersion>
+<!--    <parent>-->
+<!--        <groupId>com.ebay.raptor</groupId>-->
+<!--        <artifactId>RaptorPlatform</artifactId>-->
+<!--        <version>4.5.0</version>-->
+<!--    </parent>-->
+    <groupId>com.paypal.risk.recovery</groupId>
+    <artifactId>algo</artifactId>
+    <version>0.6.1-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <dependencies>
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>20240303</version> <!-- latest as of now -->
+        </dependency>
+    </dependencies>
+</project>
+
+

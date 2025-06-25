@@ -1,0 +1,233 @@
+@startuml RideSharing_UML
+
+!define ENTITY_COLOR #E1F5FE
+!define MANAGER_COLOR #FFF3E0
+!define STRATEGY_COLOR #F3E5F5
+!define SERVICE_COLOR #E8F5E8
+
+class Ride {
+  - rideId : String
+  - rider : Rider*
+  - driver : Driver*
+  - srcLoc : Location*
+  - dstLoc : Location*
+  - status : RideStatus
+  - type : RideType
+  - fare : double
+  - createdAt : LocalDateTime
+  - startTime : LocalDateTime
+  - endTime : LocalDateTime
+  --
+  + getRideId() : String
+  + displayRideDetails() : void
+  + updateStatus(RideStatus status) : void
+  + calculateFare(double distance) : double
+}
+
+class Location {
+  - latitude : double
+  - longitude : double
+  - address : String
+  --
+  + getLatitude() : double
+  + getLongitude() : double
+  + getAddress() : String
+  + calculateDistance(Location other) : double
+}
+
+class RideManager <<Singleton>> {
+  - instance : RideManager*
+  - activeRides : Map<String, Ride*>
+  - lock : ReentrantReadWriteLock
+  --
+  + getInstance() : RideManager*
+  + addRide(Ride ride) : void
+  + getRide(String rideId) : Ride*
+  + getAllActiveRides() : List<Ride*>
+  + removeRide(String rideId) : void
+}
+
+class DriverLocationManager <<Singleton>> {
+  - instance : DriverLocationManager*
+  - driverLocations : Map<String, Location*>
+  - locationUpdateExecutor : ExecutorService
+  --
+  + getInstance() : DriverLocationManager*
+  + updateDriverLocation(String driverId, Location location) : void
+  + getDriverLocation(String driverId) : Location*
+  + getAllDriverLocations() : Map<String, Location*>
+  - notifyNearbyRiders(String driverId, Location location) : void
+}
+
+abstract class User {
+  - userId : String
+  - name : String
+  - email : String
+  - phone : String
+  - currentLocation : Location*
+  - rating : double
+  --
+  + getUserId() : String
+  + getName() : String
+  + updateLocation(Location location) : void
+  + getRating() : double
+}
+
+class Driver extends User {
+  - licenseNumber : String
+  - vehicle : Vehicle*
+  - status : DriverStatus
+  - acceptedRideTypes : List<String>
+  --
+  + updateAvailability(DriverStatus status) : void
+  + acceptRide(Ride ride) : boolean
+  + completeRide() : void
+}
+
+class Rider extends User {
+  - defaultPayment : PaymentMethod
+  - rideHistory : List<Ride*>
+  --
+  + requestRide(Location src, Location dst, RideType type) : Ride*
+  + cancelRide(String rideId) : void
+  + addToHistory(Ride ride) : void
+}
+
+class Vehicle {
+  - vehicleId : String
+  - plateNumber : String
+  - type : VehicleType
+  - model : String
+  - color : String
+  --
+  + getVehicleDetails() : String
+  + updateVehicleInfo(String model, String color) : void
+}
+
+interface PricingStrategy <<Strategy>> {
+  + calculateFare(Ride ride, double distance) : double
+}
+
+class EconomyPricing implements PricingStrategy {
+  + calculateFare(Ride ride, double distance) : double
+}
+
+class SurgePricing implements PricingStrategy {
+  - surgeMultiplier : double
+  + calculateFare(Ride ride, double distance) : double
+  + setSurgeMultiplier(double multiplier) : void
+}
+
+class PricingContext {
+  - strategy : PricingStrategy*
+  --
+  + setStrategy(PricingStrategy strategy) : void
+  + calculatePrice(Ride ride, double distance) : double
+}
+
+interface DriverMatchingStrategy <<Strategy>> {
+  + findDriver(Ride ride, List<Driver*> availableDrivers) : Driver*
+}
+
+class NearestDriverMatcher implements DriverMatchingStrategy {
+  + findDriver(Ride ride, List<Driver*> drivers) : Driver*
+  - calculateDistance(Location src, Location dst) : double
+}
+
+class RatingBasedMatcher implements DriverMatchingStrategy {
+  + findDriver(Ride ride, List<Driver*> drivers) : Driver*
+}
+
+class RouteBasedMatcher implements DriverMatchingStrategy {
+  + findDriver(Ride ride, List<Driver*> drivers) : Driver*
+}
+
+class DriverMatcherFactory {
+  + getMatchingStrategy(RideType type) : DriverMatchingStrategy*
+}
+
+interface RideObserver <<Observer>> {
+  + onRideStatusChanged(Ride ride) : void
+}
+
+class RideNotificationService implements RideObserver {
+  + onRideStatusChanged(Ride ride) : void
+  - sendNotificationToRider(Ride ride) : void
+  - sendNotificationToDriver(Ride ride) : void
+}
+
+class RideTrackingService implements RideObserver {
+  + onRideStatusChanged(Ride ride) : void
+  - updateTrackingInfo(Ride ride) : void
+}
+
+class RideSubject {
+  - observers : List<RideObserver*>
+  - notificationExecutor : ExecutorService
+  --
+  + addObserver(RideObserver observer) : void
+  + removeObserver(RideObserver observer) : void
+  + notifyObservers(Ride ride) : void
+}
+
+class RideService {
+  - matchingService : DriverMatchingService*
+  - pricingContext : PricingContext*
+  - rideSubject : RideSubject*
+  - rideManager : RideManager*
+  - rideRequestSemaphore : Semaphore
+  - rideProcessingExecutor : ExecutorService
+  --
+  + requestRide(Rider rider, Location src, Location dst, RideType type) : CompletableFuture<Ride*>
+  + completeRide(String rideId) : void
+  + cancelRide(String rideId) : void
+  - calculateDistance(Location src, Location dst) : double
+}
+
+class LocationService {
+  - locationManager : DriverLocationManager*
+  - locationProcessingExecutor : ExecutorService
+  - nearbyDriversCache : Cache<String, List<Driver*>>
+  --
+  + updateDriverLocation(String driverId, Location location) : void
+  + getNearbyDrivers(Location location, double radiusKm) : CompletableFuture<List<Driver*>>
+  - getDriverById(String driverId) : Driver*
+}
+
+' Relationships
+Ride --> Rider : rider
+Ride --> Driver : driver
+Ride --> Location : source/destination
+Driver --> Vehicle : has
+User <|-- Driver
+User <|-- Rider
+User --> Location : currentLocation
+
+RideManager --> Ride : manages
+DriverLocationManager --> Location : tracks
+LocationService --> DriverLocationManager : uses
+
+PricingContext --> PricingStrategy : uses
+DriverMatcherFactory --> DriverMatchingStrategy : creates
+RideSubject --> RideObserver : notifies
+
+RideService --> RideManager : uses
+RideService --> PricingContext : uses
+RideService --> RideSubject : uses
+
+' Layout hints
+Ride ||--|| Location
+Driver ||--|| Vehicle
+RideManager ||--o{ Ride
+
+note right of RideManager : Singleton Pattern\nThread-safe ride management
+
+note right of DriverLocationManager : Singleton Pattern\nReal-time location tracking
+
+note bottom of PricingStrategy : Strategy Pattern\nFlexible pricing algorithms
+
+note bottom of DriverMatchingStrategy : Strategy Pattern\nDifferent matching algorithms
+
+note right of RideObserver : Observer Pattern\nAsynchronous notifications
+
+@enduml
