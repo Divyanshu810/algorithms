@@ -68,5 +68,8 @@ class MagicDictionaryTrie {
         System.out.println(obj.search("hellp"));
         System.out.println(obj.search("leetcode"));
         System.out.println(obj.search("leetcoded"));
+
+        StringBuilder sb = new StringBuilder();
+//        sb.to
     }
 }
