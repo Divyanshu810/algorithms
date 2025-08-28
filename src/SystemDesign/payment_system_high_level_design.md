@@ -201,6 +201,35 @@
 
 ## Database Design
 
+### Core Entities Overview
+
+The payment system requires several core entities that work together to maintain financial integrity and user experience:
+
+**Primary Entities:**
+- **Users:** Customer accounts and profile information
+- **Accounts:** Financial accounts (wallets, linked bank accounts, cards)
+- **Transactions:** Record of all money movements
+- **Payments:** Payment requests and their lifecycle
+- **Payment Methods:** How users can pay (cards, bank accounts, wallets)
+
+**Supporting Entities:**
+- **Ledger Entries:** Double-entry bookkeeping records
+- **Payment Authorizations:** Auth-capture flow tracking
+- **Idempotency Requests:** Duplicate prevention
+- **Risk Assessments:** Fraud detection results
+- **Notifications:** User alerts and confirmations
+
+**Relationship Overview:**
+```
+Users (1) ──→ (M) Accounts ──→ (M) Ledger Entries
+  │                │
+  └──→ (M) Payments ──→ (M) Transactions
+       │
+       └──→ (M) Payment Methods
+       │
+       └──→ (M) Risk Assessments
+```
+
 ### User Database (PostgreSQL)
 ```sql
 -- Users table
@@ -233,28 +262,113 @@ CREATE TABLE user_profiles (
 
 ### Account Database (PostgreSQL)
 ```sql
--- Wallets/Accounts
+-- Accounts (wallets, linked external accounts)
 CREATE TABLE accounts (
     account_id UUID PRIMARY KEY,
     user_id UUID REFERENCES users(user_id),
-    account_type ENUM('wallet', 'bank', 'card'),
-    currency_code VARCHAR(3),
+    account_type ENUM('wallet', 'bank', 'credit_card', 'debit_card'),
+    currency_code VARCHAR(3) NOT NULL,
     balance DECIMAL(15,2) DEFAULT 0.00,
-    available_balance DECIMAL(15,2) DEFAULT 0.00,
+    available_balance DECIMAL(15,2) DEFAULT 0.00, -- balance minus holds
+    reserved_balance DECIMAL(15,2) DEFAULT 0.00,  -- funds on hold
     account_status ENUM('active', 'frozen', 'closed'),
-    created_at TIMESTAMP DEFAULT NOW()
+    is_primary BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    version INTEGER DEFAULT 1 -- for optimistic locking
 );
 
--- External account links
+-- External account links (bank accounts, cards)
 CREATE TABLE linked_accounts (
     link_id UUID PRIMARY KEY,
     user_id UUID REFERENCES users(user_id),
-    external_account_id VARCHAR(255), -- Encrypted
-    account_type ENUM('bank', 'credit_card', 'debit_card'),
+    account_id UUID REFERENCES accounts(account_id),
+    external_account_id VARCHAR(255), -- Bank account number (encrypted)
+    account_type ENUM('bank_account', 'credit_card', 'debit_card'),
     bank_name VARCHAR(100),
-    routing_number VARCHAR(20), -- Encrypted
+    bank_code VARCHAR(20), -- Routing number / Sort code
+    account_holder_name VARCHAR(255),
+    last_four_digits VARCHAR(4), -- For display purposes
+    expiry_month INTEGER, -- For cards
+    expiry_year INTEGER,  -- For cards
     is_verified BOOLEAN DEFAULT FALSE,
-    is_primary BOOLEAN DEFAULT FALSE
+    is_primary BOOLEAN DEFAULT FALSE,
+    verification_method ENUM('micro_deposit', 'instant', 'manual'),
+    verification_date TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Account holds/reserves (for pending transactions)
+CREATE TABLE account_holds (
+    hold_id UUID PRIMARY KEY,
+    account_id UUID REFERENCES accounts(account_id),
+    transaction_id UUID, -- References transactions when created
+    hold_type ENUM('payment_reserve', 'auth_hold', 'compliance_hold'),
+    amount DECIMAL(15,2) NOT NULL,
+    currency_code VARCHAR(3) NOT NULL,
+    status ENUM('active', 'released', 'captured'),
+    reason VARCHAR(255),
+    expires_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### Payment Database (PostgreSQL)
+```sql
+-- Payment requests and their lifecycle
+CREATE TABLE payments (
+    payment_id UUID PRIMARY KEY,
+    sender_user_id UUID REFERENCES users(user_id),
+    receiver_user_id UUID, -- NULL for merchant payments
+    merchant_id UUID, -- NULL for P2P payments
+    payment_type ENUM('p2p_transfer', 'merchant_payment', 'withdrawal', 'deposit', 'refund'),
+    amount DECIMAL(15,2) NOT NULL,
+    currency_code VARCHAR(3) NOT NULL,
+    exchange_rate DECIMAL(10,6), -- If currency conversion needed
+    converted_amount DECIMAL(15,2), -- Final amount in receiver currency
+    
+    -- Payment flow status
+    status ENUM('initiated', 'authorized', 'processing', 'completed', 'failed', 'cancelled', 'refunded'),
+    payment_method_id UUID, -- How sender is paying
+    payout_method_id UUID,  -- How receiver gets paid
+    
+    -- Business details
+    description TEXT,
+    reference_id VARCHAR(255), -- External reference
+    merchant_order_id VARCHAR(255), -- For merchant payments
+    
+    -- Timing
+    requested_at TIMESTAMP DEFAULT NOW(),
+    authorized_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    expires_at TIMESTAMP,
+    
+    -- Tracking
+    idempotency_key VARCHAR(255) UNIQUE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+) PARTITION BY RANGE (created_at);
+
+-- Payment methods (how users can pay)
+CREATE TABLE payment_methods (
+    method_id UUID PRIMARY KEY,
+    user_id UUID REFERENCES users(user_id),
+    method_type ENUM('wallet_balance', 'linked_bank', 'credit_card', 'debit_card', 'digital_wallet'),
+    linked_account_id UUID REFERENCES linked_accounts(link_id),
+    account_id UUID REFERENCES accounts(account_id), -- For wallet balance
+    
+    -- Display information
+    display_name VARCHAR(100), -- "Chase ****1234", "Wallet Balance"
+    brand VARCHAR(50), -- "Visa", "MasterCard", "Chase"
+    last_four_digits VARCHAR(4),
+    
+    -- Status and preferences
+    is_active BOOLEAN DEFAULT TRUE,
+    is_default BOOLEAN DEFAULT FALSE,
+    requires_authentication BOOLEAN DEFAULT FALSE, -- For cards requiring CVV
+    
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
 );
 ```
 
