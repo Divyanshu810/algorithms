@@ -6,4 +6,8 @@ class Payment {
     double amount;
     PaymentMethod method;
     PaymentStatus status;
+
+    public static void main(String[] args) {
+//        Integer.M
+    }
 }
