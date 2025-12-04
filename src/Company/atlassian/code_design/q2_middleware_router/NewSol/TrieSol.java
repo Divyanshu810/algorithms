@@ -2,6 +2,46 @@ package Company.atlassian.code_design.q2_middleware_router.NewSol;
 
 import java.util.*;
 
+/**
+ *
+ * router.addRoute("/api/users", "exact-users");      // exact match
+ * router.addRoute("/api/* / test", "wildcard-test");   // wildcard
+ * router.addRoute("/api/{version}/docs","param-docs"); // param
+ *
+ * Trie Structure:
+ *
+ *                         [ROOT]
+ *                      children = {
+ *                        "api" → TrieNode
+ *                      }
+ *                           │
+ *                           ▼
+ *                      [api node]
+ *                           │
+ *     ┌─────────────────────┼─────────────────────┐
+ *     │                     │                     │
+ *  children = {        wildcardChild         paramChild
+ *    "users"→TrieNode     = TrieNode          = TrieNode
+ *  }                          │              paramName = "version"
+ *     │                       │                    │
+ *     ▼                       ▼                    ▼
+ *  [users node]          [* node]           [{version} node]
+ *  isEnd = true         children = {        children = {
+ *  result =              "test"→TrieNode     "docs"→TrieNode
+ *  "exact-users"        }                   }
+ *                            │                    │
+ *                            ▼                    ▼
+ *                       [test node]         [docs node]
+ *                       isEnd = true        isEnd = true
+ *                       result =            result =
+ *                       "wildcard-test"     "param-docs"
+ *
+ * Priority Order During Lookup:
+ *   1. EXACT    →  children.get(segment)     [Highest]
+ *   2. PARAM    →  paramChild                [Middle]
+ *   3. WILDCARD →  wildcardChild             [Lowest]
+ */
+
 class TrieNode {
     Map<String, TrieNode> children = new HashMap<>();
     TrieNode wildcardChild = null;
@@ -169,5 +209,6 @@ Query: /user/admin/settings
 3. "admin" → try exact match → "admin" exists ✓
         4. "settings" → exact match ✓
         5. Returns "admin-result" ✓
+
 
  */
