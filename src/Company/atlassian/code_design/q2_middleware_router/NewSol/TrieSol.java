@@ -40,6 +40,30 @@ import java.util.*;
  *   1. EXACT    →  children.get(segment)     [Highest]
  *   2. PARAM    →  paramChild                [Middle]
  *   3. WILDCARD →  wildcardChild             [Lowest]
+ *
+ *
+ *   Time Complexity Analysis: TrieRouter
+ *
+ * addRoute(path, result)
+ * Step-by-step:
+ * 1. path.split("/")           → O(P) where P = path string length
+ * 2. Loop through M segments   → O(M) iterations
+ * 3. Each iteration:
+ *    - HashMap operations      → O(1) average
+ *    - String checks           → O(S) where S = segment length
+ *
+ * Total: O(P) or O(M) where M = number of segments
+ *
+ * callRoute(path)
+ * Step-by-step:
+ * 1. path.split("/")           → O(P)
+ * 2. pathParams.clear()        → O(K) where K = existing params (small)
+ * 3. Loop through M segments   → O(M) iterations
+ * 4. Each iteration:
+ *    - containsKey/get         → O(1) average
+ *    - put for params          → O(1) average
+ *
+ * Total: O(P) or O(M) where M = number of segments
  */
 
 class TrieNode {
